@@ -112,7 +112,7 @@ Podemos ver que o `StatusCode` é `201`, que significa que o post‑it foi criad
 
 Agora que temos o back‑end funcionando, vamos criar o front‑end igual ao da imagem do final da aula 2 que consome os dois endpoints.
 
-## 2.1  Retirar todos os botões de `layout.jsx`
+## 2.1)  Retirar todos os botões de `layout.jsx`
 
 Antes, no arquivo de layout estávamos colocando os botões de **Home** e **Contact**. Agora, como não teremos mais essas páginas, podemos retirar esses botões. E deixar somente o `<Outlet />` que é onde o conteúdo da página vai ser renderizado. 
 
@@ -140,7 +140,7 @@ Esse jeito que estamos fazendo, de importar tudo no `layout.jsx`, é uma outra f
 A prática mais comum é criar componentes e importar eles sempre na página que estamos construindo.
 
 
-## 2.2  `Home.jsx`
+## 2.2)  `Home.jsx`
 
 ### Onde estávamos antes
 
@@ -924,8 +924,6 @@ No nosso front, em `localhost:5173`, temos nossos post-its com a função de cri
 Para visualizarmos os post-its que criamos, precisamos olhar o terminal onde o Flask está rodando. Lá podemos ver os logs de requisições que estão sendo feitas e se entrarmos em `http://127.0.0.1:5000` no navegador, podemos ver os post-its que criamos em formato JSON.
 
 Então podemos concluir que o front está se comunicando com o back, e o back está armazenando os post-its em memória!
-
-Perfeito 👌 vamos montar a continuação da **Aula 3**, agora explicando passo a passo como implementar a **deleção de um post-it**.
 
 ---
 
