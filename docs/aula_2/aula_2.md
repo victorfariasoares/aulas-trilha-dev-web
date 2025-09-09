@@ -15,12 +15,15 @@ trilha-dev-web/
 └─ backend/    # Flask
 ```
 
-  ## a. Criação do repositório no github
+  ## 1.1. Criação do repositório no github
+
   Para começar, crie um repositório no github preferencialmente com o nome que preferir.  
   ![alt text](image.png)
   ![alt text](image-2.png)
 
-  ## b. Clonar o repositório na sua máquina
+  ## 1.2. Clonar o repositório na sua máquina
+
+
   ![alt text](image-3.png)
 
   Abra um terminal powershell na sua máquina. É só pesquisar por PowerShell
@@ -31,7 +34,7 @@ trilha-dev-web/
 
   Pronto, seu repositório está clonado em sua máquina!
 
-  ## c. Crie um arquivo **.gitignore** na raiz para ignorar arquivos comuns a Node e Python:
+  ## 1.3. Crie um arquivo **.gitignore** na raiz para ignorar arquivos comuns a Node e Python:
 
 Agora que temos o repositório criado, precisamos garantir que apenas os arquivos realmente importantes sejam enviados para o GitHub. Para isso usamos o .gitignore: um arquivo de configuração que indica ao Git quais arquivos e pastas devem ser ignorados no versionamento. Isso é essencial porque, durante o desenvolvimento, surgem muitos arquivos temporários ou específicos do ambiente local (como `node_modules`, `__pycache__` ou variáveis em `.env`(que veremos mais para frente)). Eles são necessários para rodar o projeto na sua máquina, mas não devem ir para o repositório.
 
@@ -246,9 +249,9 @@ npm install react-router-dom
 
 Vamos implementar uma página **Contact** com um formulário simples (nome, email, mensagem) e rota `/contact`. Ela poderá ser acessada da página **Home** através de um botão.
 
-2. **Criar as rotas**
+1. **Criar as rotas**
 
-* `src/app/layout.jsx` aqui estamos criando um layout super básico que terá um botão **Home** e outro **Contact**.
+  - `src/app/layout.jsx` aqui estamos criando um layout super básico que terá um botão **Home** e outro **Contact**.
 
 ```jsx
 import { Outlet, NavLink } from "react-router-dom";
@@ -270,7 +273,7 @@ export default function Layout() {
 
 ```
 
-* `src/pages/Home.jsx` Aqui está sendo definido um componente funcional chamado Home. Ele retorna um elemento `<h1>` com o texto "Home". Este componente é usado para renderizar a página inicial.
+2. `src/pages/Home.jsx` Aqui está sendo definido um componente funcional chamado Home. Ele retorna um elemento `<h1>` com o texto "Home". Este componente é usado para renderizar a página inicial.
 
 ```jsx
 export default function Home() {
@@ -278,7 +281,7 @@ export default function Home() {
 }
 ```
 
-* `src/pages/Contact.jsx` Aqui esta sendo definido um componente funcional chamado Contact. Ele retorna um elemento `<form>` com campos para nome, email e mensagem. Este componente é usado para renderizar a página de contato.
+3. `src/pages/Contact.jsx` Aqui esta sendo definido um componente funcional chamado Contact. Ele retorna um elemento `<form>` com campos para nome, email e mensagem. Este componente é usado para renderizar a página de contato.
 
 ```jsx
 export default function Contact() {
@@ -294,7 +297,7 @@ export default function Contact() {
 
 ```
 
-* `src/app/routes.jsx` Aqui estamos definindo as rotas da aplicação.
+4. `src/app/routes.jsx` Aqui estamos definindo as rotas da aplicação.
 
 ```jsx
 import { createBrowserRouter } from "react-router-dom";
@@ -315,7 +318,7 @@ export const router = createBrowserRouter([
 ]);
 ```
 
-3. Trocar o `main.jsx` para usar o Router. Aqui estamos importando o RouterProvider e passando o router criado anteriormente.
+5. Trocar o `main.jsx` para usar o Router. Aqui estamos importando o RouterProvider e passando o router criado anteriormente.
 
 ```jsx
 import React from "react";
@@ -331,7 +334,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
 );
 ```
 
-4. Adicionar todos os estilos em `index.css`
+6. Adicionar todos os estilos em `index.css`
 
 ```css
 /* Reset/estrutura base */
@@ -412,7 +415,7 @@ body {
 }
 ```
 
-5. **Rodar**
+7. **Rodar**
 
 ```bash
 npm run dev
