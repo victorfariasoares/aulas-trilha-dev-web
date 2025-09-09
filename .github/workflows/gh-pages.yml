@@ -17,7 +17,7 @@ jobs:
           python-version: 3.11
 
       - name: Install dependencies
-        run: pip install mkdocs mkdocs-material mkdocs-jupyter
+        run: pip install mkdocs mkdocs-material mkdocs-jupyter mkdocs-git-revision-date-localized-plugin
 
       - name: Build and Deploy
         run: mkdocs gh-deploy --force
