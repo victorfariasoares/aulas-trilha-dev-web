@@ -1,0 +1,23 @@
+name: Deploy MkDocs
+
+on:
+  push:
+    branches:
+      - main   # dispara o deploy em todo push na branch main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.11
+
+      - name: Install dependencies
+        run: pip install mkdocs mkdocs-material mkdocs-jupyter
+
+      - name: Build and Deploy
+        run: mkdocs gh-deploy --force
