@@ -1,18 +1,17 @@
 # Aula 3
 
-# Colocar objetivos da aula
----
+Na última aula, preparamos o ambiente de desenvolvimento e criamos a estrutura básica do nosso projeto. Agora, vamos avançar para a implementação da interface principal, os **post-its**.
 
-# 0) Objetivo da aula
+## Objetivos:
 
 1. **Reproduzir a interface básica** mostrada na imagem (banner amarelo, formulário central e “post‑its” coloridos).
 2. Construir **o caminho mínimo** front → back para:
 
    * **`GET /api/notes`** – listar post‑its existentes.
    * **`POST /api/notes`** – criar um novo post‑it.
-3. Manter o código **o mais simples possível**, sem Redux, sem Context, sem banco; apenas *fetch* + estado local.
 
-> Na próxima aula evoluiremos para edição, remoção e persistência em banco.
+
+
 
 ---
 
@@ -111,6 +110,8 @@ Podemos ver que o `StatusCode` é `201`, que significa que o post‑it foi criad
 
 # 2) Front‑end – React + Vite
 
+Agora que temos o back‑end funcionando, vamos criar o front‑end igual ao da imagem do final da aula 2 que consome os dois endpoints.
+
 ## 2.1  Retirar todos os botões de `layout.jsx`
 
 Antes, no arquivo de layout estávamos colocando os botões de **Home** e **Contact**. Agora, como não teremos mais essas páginas, podemos retirar esses botões. E deixar somente o `<Outlet />` que é onde o conteúdo da página vai ser renderizado. 
@@ -134,13 +135,14 @@ export default function Layout() {
 }
 ```
 
+Esse jeito que estamos fazendo, de importar tudo no `layout.jsx`, é uma outra forma de fazer com que tenha alguns componentes em todas as páginas. 
 
-## 2.2  `Home.jsx` de ponta‑a‑ponta
-
-Agora que já validamos o funcionamento do back‑end, vamos criar o front‑end mínimo que consome os dois endpoints.
+A prática mais comum é criar componentes e importar eles sempre na página que estamos construindo.
 
 
-## Onde estávamos antes
+## 2.2  `Home.jsx`
+
+### Onde estávamos antes
 
 Na **Aula 2**, a página `Home.jsx` era só um teste, com um texto simples:
 
@@ -313,7 +315,7 @@ return (
 
 ---
 
-### Linha por linha
+## Linha por linha
 
 #### 🔹 Cabeçalho (`appbar`)
 
@@ -360,7 +362,7 @@ O mesmo acontece para:
 * **Textarea** → ligado a `content` e `setContent`.
 * **Input de tag** → ligado a `tag` e `setTag`.
 
-##### Botão Criar
+#### 🔹 Botão Criar
 
 ```jsx
 <button className="btn-criar">Criar</button>
@@ -397,12 +399,12 @@ O mesmo acontece para:
 
 Repare:
 
-<!-- 1. **`key={note.id}`** → O React exige uma chave única em listas, para saber diferenciar os elementos. -->
- **`{note.tag && ...}`** → Isso significa “só mostre a tag se ela existir”. É um **if curto** em JSX.
+1. **`key={note.id}`** → O React exige uma chave única em listas, para saber diferenciar os elementos.
+2. **`{note.tag && ...}`** → Isso significa “só mostre a tag se ela existir”. É um **if curto** em JSX.
 
 ---
 
-## 7. Código completo final
+## Código completo final
 
 Juntando tudo:
 
@@ -834,7 +836,7 @@ Explicando:
 
 # 5) Acabamos!?
 
-Vamos rodar o front, somente o front para ver se está tudo de acordo.
+Vamos somente o front para ver se está tudo de acordo.
 
 Em um terminal:
 
@@ -847,8 +849,10 @@ Ué, temos algum erro. Não? A página não está exatamente com a cara que quer
 
 1. O fundo da tela está preto e deveria estar branco.
 2. A escrita "Como o Post-it, mas com outro verbo" está em branco mas deveria estar em preto.
+---
 
-Para resolver o primeiro problema, pense, mexemos em todos os arquivos necessários? 
+
+**Para resolver o primeiro problema, pense, mexemos em todos os arquivos necessários?** 
 
 Você já deve imaginar que a resposta é: não. Esquecemos de um arquivo que também esta dentro do nosso fluxo, o arquivo `main.jsx`.
 
@@ -861,10 +865,8 @@ Pronto! Foi melhor do que pensávamos. Resolvemos os dois problemas de uma vez s
 
 ![alt text](image-5.png)
 
-Já podemos testar tudo???
 
-AGORA SIM! Estamos prontos para rodar tudo.
-
+**AGORA SIM! Estamos prontos para rodar tudo.**
 # 6) Vamos agora rodar os dois juntos 
 
 
@@ -886,7 +888,34 @@ Abra o navegador em `localhost:5173`, crie alguns post‑its… e veja surgirem!
 
 ---
 
-# 7) Vamos entender o que está acontecendo
+# 7) Esquecemos de mais uma coisa
+
+Vocês devem ter percebido que quando criamos os post-its eles estão com a mesma cor. Vamos resolver isso no `home.jsx`.
+
+O que está acontecendo é que estamos renderizando todos os post-its com a mesma classe `card`.
+
+A ideia para corrigir isso é criar uma função que retorne uma cor diferente para cada post-it. Como temos 5 cores, podemos usar o número de post-its para definir a cor.
+
+Vamos trocar todo o `<ul className="card-container">` por:
+
+```jsx
+<ul className="card-container">
+  {notes.map((note, i) => {
+    const colorClass = `card-color-${(i % 5) + 1}`;
+    return (
+      <div className={`card ${colorClass}`} key={note.id}>
+        <h3 className="card-title">{note.title}</h3>
+        <div className="card-content">
+          <p>{note.content}</p>
+          {note.tag && <p className="card-tag">#{note.tag}</p>}
+        </div>
+      </div>
+    );
+  })}
+</ul>
+```
+
+# 8) Vamos entender o que está acontecendo
 
 Agora que conseguimos adicionar alguns post-its, precisamos entender o que está acontecendo em cada página. 
 
@@ -896,14 +925,83 @@ Para visualizarmos os post-its que criamos, precisamos olhar o terminal onde o F
 
 Então podemos concluir que o front está se comunicando com o back, e o back está armazenando os post-its em memória!
 
+Perfeito 👌 vamos montar a continuação da **Aula 3**, agora explicando passo a passo como implementar a **deleção de um post-it**.
 
 ---
 
-## 5) Próximos passos
+# 9) Deletando Post-its
 
-* **Aula 4:** editar e remover post‑its + salvar tudo em `localStorage`.
-* **Aula 5:** trocar o armazenamento volátil por **PostgreSQL**, criar modelo `Note` e **migrations**.
+Até agora nossa página **Home.jsx** já permite **criar** post-its e listá-los na tela.
+Agora vamos dar o próximo passo: **deletar** uma nota existente.
 
-Até lá, brinquem com o código, personalizem cores/rotação, e, se quiserem, já tentem implementar a **deleção** de um post‑it por conta própria. 🚀
+
+## Como será nosso fluxo?
+
+1. Criar uma função para deletar uma nota. Essa função deverá enviar uma requisição **DELETE** para o back-end. 
+2. Mostrar um botão para deletar cada post-it. Quando o usuário clicar, nesse botão, chamaremos a função de deletar. 
+4. Atualizar a lista local (`notes`) para remover o item da tela.
 
 ---
+
+## Alterando o front-end
+
+### Criando a função `handleDelete`
+
+Dentro de **Home.jsx**, logo após a função `handleSubmit`, adicione:
+
+```jsx
+function handleDelete(id) {
+  fetch(`http://localhost:5000/api/notes/${id}`, {
+    method: "DELETE",
+  }).then(() => {
+    // remove da lista local
+    setNotes(notes.filter((n) => n.id !== id));
+  });
+}
+```
+
+* Fazemos um `fetch` com `method: "DELETE"`.
+* Se o back-end confirmar, usamos `setNotes` para atualizar a lista, **sem precisar recarregar a página**.
+* O método `.filter()` do JavaScript cria um novo array apenas com os elementos que satisfazem a condição passada, ou seja, todos os post-its cujo `id` é diferente do que foi deletado.
+
+---
+
+### Adicionando o botão de lixeira
+
+Dentro do `return` que renderiza os cards,  vamos adicionar um `<a href/>` com o o botão da lixeira ja incluindo a função de deletar que criamos acima:
+
+```jsx
+<a href="#" className="lixeira" onClick={(e) => { e.preventDefault(); handleDelete(note.id); }}>🗑️</a>
+```
+
+* Usamos a classe `lixeira` que já existe no CSS.
+* O evento `onClick={() => handleDelete(note.id)}` chama a função de exclusão passando o id da nota.
+
+---
+
+## Alterando o back-end para suportar DELETE
+
+No **app.py**, adicionamos a rota **DELETE**:
+
+```python
+@app.route("/api/notes/<int:note_id>", methods=["DELETE"])
+def delete_note(note_id):
+    global notes
+    notes = [n for n in notes if n["id"] != note_id]
+    return "", 204
+```
+
+* Recebe o `note_id` da URL.
+* Remove a nota correspondente da lista `notes`.
+* Retorna `204` (No Content), indicando que a exclusão foi bem-sucedida.
+
+Agora, teste!
+
+---
+
+# 10) Conclusão
+
+Pronto! Agora já temos um CRUD parcial: **Create** e **Delete**.
+Na próxima aula, vamos implementar o **Editar** (Update) e explorar a página de **edição**.
+
+
