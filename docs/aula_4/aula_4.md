@@ -245,9 +245,9 @@ import psycopg2
 
 ```python
 conn = psycopg2.connect(
-    dbname="getit",
+    dbname="trilha_db",
     user="postgres",
-    password="sua_senha_aqui",
+    password="admin",
     host="localhost",
     port="5432"
 )
