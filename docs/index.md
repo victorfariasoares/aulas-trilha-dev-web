@@ -17,8 +17,8 @@ Este material foi criado por membros da **Engenharia do AgroInsper** para ajudar
 ## 📅 Cronograma de Aulas
 
 - [x] ✅ Aula 1 – *09/09/2025*
-- [ ] 🔄 Aula 2 – *11/09/2025*
-- [ ] 🔄 Aula 3 – *12/09/2025*
+- [x] ✅ Aula 2 – *11/09/2025*
+- [x] ✅ Aula 3 – *12/09/2025*
 - [ ] 🔄 Aula 4 – *15/09/2025*
 - [ ] 🔄 Aula 5 – *19/09/2025*
 
