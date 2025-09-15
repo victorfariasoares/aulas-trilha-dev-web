@@ -8,8 +8,8 @@ Agora é hora de usar um **banco de dados de verdade** para que os dados fiquem 
 Os nossos objetivos nesta aula estão centralizados em implementar toda a estrutura necessária para usar um banco de dados PostgreSQL com Flask, e também adicionar mais uma funcionalidade, a de **Editar** um post-it já existente.
 
 1. Instalar e configurar **PostgreSQL** e **pgAdmin**.
-2. Conectar o back-end Flask ao banco usando **psycopg2**.
-3. Criar tabela `notes` e migrar os endpoints (`GET`, `POST`, `DELETE`).
+2. Conectar o back-end Flask ao banco SQLAlchemy (ORM — mapear tabelas em classes Python).
+3. Criar tabela e migrar os endpoints (`GET`, `POST`, `DELETE`).
 4. Implementar o **Editar (Update)** com rota `PUT /api/notes/<id>`.
 5. Criar a página de edição no front-end (`EditNote.jsx`).
 
@@ -75,7 +75,7 @@ sudo systemctl enable postgresql
 
 ---
 
-# 2) Criando banco e tabela
+# 2) Criando banco
 
 ## 2.1 Abra o **pgAdmin**
 
@@ -87,286 +87,362 @@ sudo systemctl enable postgresql
 
 **Salvar**.
 
-## 2.3 Criar tabela `notes`
+> **Importante:** nesta abordagem não precisamos criar tabelas manualmente.
+> As tabelas serão geradas automaticamente a partir dos **modelos Python** usando migrations.
+---
 
-Abra a aba **Query Tool** clicando com o botão direito em `trilha_db` → Query Tool.
+# 3) Configurando o back-end com SQLAlchemy
 
-Rode o seguinte código SQL:
+### 3.1 Instalar dependências
 
-```sql
--- Se a tabela já existir, apaga para recriar do zero
-DROP TABLE IF EXISTS notes;
+No **venv-back**, rode:
 
--- Criação da tabela principal de post-its
-CREATE TABLE notes (
-    id SERIAL PRIMARY KEY,      -- id auto-incremental
-    title TEXT NOT NULL,        -- título obrigatório
-    content TEXT NOT NULL,      -- conteúdo obrigatório
-    tag TEXT                    -- tag opcional
-);
+```bash
+pip install Flask-SQLAlchemy Flask-Migrate psycopg2-binary python-dotenv
+```
 
--- Inserindo alguns registros iniciais de exemplo
-INSERT INTO notes (title, content, tag) VALUES
-('Primeira nota', 'Esse é o meu primeiro post-it no banco!', 'inicio'),
-('Reunião', 'Preparar apresentação para segunda-feira.', 'trabalho'),
-('Lista de compras', 'Leite, pão, ovos, café', 'pessoal'),
-('Ideia de projeto', 'Testar integração React + Flask + PostgreSQL', 'estudos');
+E atualize o `requirements.txt`:
+```bash
+pip freeze > requirements.txt
+```
+
+---
+
+### 3.2 Estrutura de pastas
+
+Até a Aula 3, todo o código do back-end estava dentro de um único arquivo (`app.py`).
+Isso funciona em projetos pequenos, mas logo fica difícil de manter: o arquivo cresce demais, mistura responsabilidades (rotas, conexão com banco, regras de negócio), e qualquer alteração vira uma bagunça.
+
+Por isso, agora separamos em arquivos e pastas bem definidos:
 
 ```
+backend/
+├─ app.py             # Ponto de entrada da aplicação
+├─ app/
+│  ├─ __init__.py     # Criação da app Flask + integração com extensões
+│  ├─ config.py       # Configurações (ex.: banco de dados, variáveis de ambiente)
+│  ├─ models.py       # Modelos (classes que viram tabelas no banco)
+│  └─ routes.py       # Rotas (endpoints da API)
+└─ migrations/        # Histórico de alterações no banco (será criado pelo Flask-Migrate)
+
+```
+
+---
+
+### 3.3 Configuração (`app/config.py`)
+
+Guarda as informações sensíveis e de ambiente (como URL do banco e chave secreta):
+
+```python
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+class Config:
+    SQLALCHEMY_DATABASE_URI = os.getenv("DATABASE_URL")
+    SQLALCHEMY_TRACK_MODIFICATIONS = False
+```
+
+Crie também um arquivo **.env** na pasta `backend/`:
+
+```env
+DATABASE_URL=postgresql://postgres:admin@localhost:5432/trilha_db
+SECRET_KEY=umasecretkey
+```
+
+O formato da conexão é sempre:
+```bash
+postgresql://USUARIO:SENHA@HOST:PORTA/NOME_DO_BANCO
+```
+`SECRET_KEY`
+
+Essa chave é usada pelo Flask para **assinar tokens e cookies de sessão**.
+
+* Você mesmo **define qualquer valor aleatório**.
+* No seu caso, pode ser `"umasecretkey"`, `"segredo123"`, `"minha_chave_super_segura"`, ou até gerar algo maior.
+* Não precisa ter definido antes, é você que decide agora.
+* Em projetos sérios, o ideal é gerar algo bem forte (ex.: `openssl rand -hex 32`) e **não compartilhar no GitHub** — sempre deixar no `.env`.
+
+Neste projeto, o `SECRET_KEY` ainda não está sendo usado diretamente, mas já deixamos ele preparado para quando precisar (ex.: autenticação com JWT ou sessões Flask).
+
+---
+
+### 3.4 Inicialização (`app/__init__.py`)
+
+Aqui centralizamos as extensões do Flask:
+- `db = SQLAlchemy()` → conecta o Flask ao banco de dados.
+
+- `migrate = Migrate()` → gerencia migrations (criação e alteração de tabelas).
+
+- `create_app()` → cria a instância Flask e registra o blueprint com as rotas.
+
+Esse arquivo é o coração do back-end: garante que tudo esteja pronto (banco, CORS, rotas).
+
+```python
+from flask import Flask
+from flask_sqlalchemy import SQLAlchemy
+from flask_migrate import Migrate
+from flask_cors import CORS
+from .config import Config
+
+db = SQLAlchemy()
+migrate = Migrate()
+
+def create_app():
+    app = Flask(__name__)
+    app.config.from_object(Config)
+
+    CORS(app, origins=["http://localhost:5173"])
+
+    db.init_app(app)
+    migrate.init_app(app, db)
+
+    from .routes import main
+    app.register_blueprint(main)
+
+    return app
+```
+
+---
+
+### 3.5 Model (`app/models.py`)
+
+Cada classe Python aqui representa uma tabela do banco:
+
+```python
+from . import db
+
+class Note(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(150), nullable=False)
+    content = db.Column(db.Text, nullable=False)
+    tag = db.Column(db.String(50))
+```
+`Note` → vira a tabela `note`.
+
+`id` → coluna inteira, chave primária.
+
+`title`, `content` → colunas obrigatórias (`nullable=False`).
+
+`tag` → coluna opcional.
+
+Graças ao SQLAlchemy, não precisamos escrever SQL manual.
+
+---
+
+### 3.6 Rotas (`app/routes.py`)
+
+Aqui ficam os endpoints (as “portas de entrada” para o front se comunicar com o back).
+Exemplos:
+- `POST /api/notes` → cria uma nota.
+
+- `GET /api/notes/<id>` → busca uma nota específica.
+
+- `PUT /api/notes/<id>` → edita uma nota.
+
+- `DELETE /api/notes/<id>` → apaga uma nota.
+
+```python
+from flask import Blueprint, request, jsonify
+from .models import Note
+from . import db
+
+main = Blueprint("main", __name__)
+
+# GET all
+@main.route("/api/notes", methods=["GET"])
+def get_notes():
+    notes = Note.query.order_by(Note.id).all()
+    return jsonify([{
+        "id": n.id, "title": n.title, "content": n.content, "tag": n.tag
+    } for n in notes])
+
+# POST
+@main.route("/api/notes", methods=["POST"])
+def add_note():
+    data = request.get_json()
+
+    note = Note(
+        title=data["title"].strip(),
+        content=data["content"].strip(),
+        tag=data.get("tag", "").strip()
+    )
+    db.session.add(note)
+    db.session.commit()
+    return jsonify({
+        "id": note.id, "title": note.title, "content": note.content, "tag": note.tag
+    }), 201
+
+# GET one
+@main.route("/api/notes/<int:id>", methods=["GET"])
+def get_note(id):
+    note = Note.query.get_or_404(id)
+    return jsonify({"id": note.id, "title": note.title, "content": note.content, "tag": note.tag})
+
+# PUT
+@main.route("/api/notes/<int:id>", methods=["PUT"])
+def update_note(id):
+    note = Note.query.get_or_404(id)
+    data = request.get_json()
+
+    note.title = data["title"].strip()
+    note.content = data["content"].strip()
+    note.tag = data.get("tag", "").strip()
+    db.session.commit()
+    return jsonify({"id": note.id, "title": note.title, "content": note.content, "tag": note.tag})
+
+# DELETE
+@main.route("/api/notes/<int:id>", methods=["DELETE"])
+def delete_note(id):
+    note = Note.query.get_or_404(id)
+    db.session.delete(note)
+    db.session.commit()
+    return "", 204
+```
+
+---
+
+### 3.7 Arquivo principal (`app.py`)
+
+### Atualizando o `app.py`
+
+Até a Aula 3, o nosso `app.py` tinha **tudo dentro dele**:
+
+* Era o banco de dados (lista `notes`);
+* As rotas da API (`/api/notes`, `/api/tags` etc.);
+* A função principal para rodar o servidor Flask.
+
+Esse modelo **funciona em projetos pequenos**, mas rapidamente vira um problema:
+o arquivo fica gigante, difícil de organizar e de manter.
+
+
+---
+
+### Como fica o `app.py` agora?
+
+Apagamos todo o conteúdo antigo e deixamos apenas:
+
+```python
+from app import create_app
+
+app = create_app()
+
+if __name__ == "__main__":
+    app.run(debug=True, host="0.0.0.0", port=5000)
+```
+
+---
+
+### O que está acontecendo aqui?
+
+* `from app import create_app` → Importa a função `create_app` que criamos em `app/__init__.py`.
+* `app = create_app()` → Cria a instância do Flask já configurada com:
+
+  * Conexão ao banco de dados (SQLAlchemy);
+  * Sistema de migrations (Flask-Migrate);
+  * CORS habilitado;
+  * Blueprints com todas as rotas da API.
+* O bloco `if __name__ == "__main__":` → Garante que o servidor Flask só seja iniciado quando rodamos `python app.py`, e não quando importamos esse arquivo em outro lugar.
+* `app.run(...)` → De fato, sobe o servidor na porta `5000`.
+
+### Por que mudar?
+
+Agora que estamos usando **SQLAlchemy + Flask-Migrate**, é a hora de organizar o projeto de forma mais profissional:
+
+* A **conexão com o banco** fica no `app/__init__.py`.
+* As **rotas** ficam separadas em `app/routes.py`.
+* Os **modelos do banco (tabelas)** ficam em `app/models.py`.
+* O `app.py` passa a ser **somente o ponto de entrada** da aplicação.
+
+Assim, o código fica mais limpo, fácil de entender e **pronto para crescer** (com várias tabelas e rotas diferentes).
+
+
+---
+
+# 4) Migrations (criando tabela notes)
+
+O SQLAlchemy permite mapear tabelas como classes Python (ORM).
+Com o **Flask-Migrate**, conseguimos criar a estrutura do banco diretamente a partir dos modelos.
+
+No terminal, dentro da pasta `backend/`:
+
+```bash
+flask db init          # cria a pasta migrations (somente 1 vez no projeto)
+flask db migrate -m "create notes"
+flask db upgrade       # aplica as alterações → cria a tabela notes no banco
+```
+
+Agora, sempre que fizer alterações no `models.py`, o fluxo é:
+```bash
+flask db migrate -m "descricao da mudança"
+flask db upgrade
+```
+
+1. **`flask db init`**
+
+   * Criou a pasta `migrations/` e os arquivos de configuração do Alembic (que é quem o Flask-Migrate usa por baixo dos panos).
+   * Isso só precisa ser feito **uma vez por projeto**.
+
+2. **`flask db migrate -m "create notes"`**
+
+   * O Flask olhou para o seu `models.py`, percebeu que existe um modelo `Note`, e gerou um script de migration (`ab1b3f962119_create_notes.py`) dentro de `migrations/versions/`.
+   * Esse script é tipo um "histórico" dizendo: *"criar a tabela note com as colunas id, title, content, tag"*.
+
+3. **`flask db upgrade`**
+
+   * Aplicou esse script no banco de dados `trilha_db`.
+   * Agora a tabela `note` foi realmente criada no PostgreSQL.
+
+
+
+* Abra o **pgAdmin**, atualize as tabelas dentro de `trilha_db`, e você deve ver a tabela `note`.
+
+
+* No **pgAdmin**, em `Tables`, aparecem:
+
+  * `note` → que é justamente a tabela criada a partir do seu modelo `Note` em `models.py`.
+  * `alembic_version` → essa tabela é criada automaticamente pelo Flask-Migrate para controlar quais migrations já foram aplicadas.
+
+
+* Clique com o botão direito → **View/Edit Data → All Rows** e deve aparecer uma tabela vazia, mas já com as colunas (`id`, `title`, `content`, `tag`).
+
+
+  * `id` (PK, auto-incremento)
+  * `title` (`varchar(150)`, obrigatório)
+  * `content` (`text`, obrigatório)
+  * `tag` (`varchar(50)`, opcional)
+
+Ou seja, está exatamente de acordo com o modelo que você definiu no `models.py`:
+
+```python
+class Note(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(150), nullable=False)
+    content = db.Column(db.Text, nullable=False)
+    tag = db.Column(db.String(50))
+```
+
 
 Agora temos uma tabela `notes` pronta para receber nossos dados.
 
-Para termos de curiosidade, abaixo estão os principais tipos de dados de string em SQL.
+Os tipos de dados que usamos em nossas tabelas são muito importantes, pois diferentes tipos de dados tem diferentes tratamentos e consomem diferentes quantidades de espaço em disco. Abaixo estão os principais tipos de dados de string em SQL.
 
 ![alt text](image.png)
 
-## 2.4 Verificando se a tabela foi criada
-
-Após isso, vá em Tables, clique com o botão direito e de um Refresh.
-
-Agora clique com o botão direito em `notes` → View/Edit Data → All Rows.
-
-Você deve ver os 4 post-its que acabamos de inserir.
-
-![alt text](image-1.png)
-
-# 3) Configurando Flask com psycopg2
-
-No **venv do backend**, instale:
-
-```bash
-pip install psycopg2-binary
-```
-
-Edite o `backend/app.py`:
-
-```python
-from flask import Flask, request, jsonify
-from flask_cors import CORS
-import psycopg2
-
-app = Flask(__name__)
-CORS(app, origins=["http://localhost:5173"])
-
-# Conexão com o banco (ajuste usuário/senha conforme sua instalação)
-conn = psycopg2.connect(
-    dbname="trilha_db",
-    user="postgres",
-    password="admin",
-    host="localhost",
-    port="5432"
-)
-conn.autocommit = True
-
-@app.route("/")
-def index():
-    return "<h2>API Get-it rodando com PostgreSQL!</h2>"
-
-@app.route("/api/notes", methods=["GET", "POST"])
-def handle_notes():
-    cur = conn.cursor()
-    if request.method == "POST":
-        data = request.get_json(force=True)
-        cur.execute(
-            "INSERT INTO notes (title, content, tag) VALUES (%s, %s, %s) RETURNING id, title, content, tag",
-            (data.get("title", "").strip(), data.get("content", "").strip(), data.get("tag", "").strip())
-        )
-        new_note = cur.fetchone()
-        cur.close()
-        return jsonify({"id": new_note[0], "title": new_note[1], "content": new_note[2], "tag": new_note[3]}), 201
-
-    # Se for GET
-    cur.execute("SELECT id, title, content, tag FROM notes ORDER BY id")
-    notes = cur.fetchall()
-    cur.close()
-    return jsonify([
-        {"id": n[0], "title": n[1], "content": n[2], "tag": n[3]}
-        for n in notes
-    ])
-
-@app.route("/api/notes/<int:note_id>", methods=["DELETE"])
-def delete_note(note_id):
-    cur = conn.cursor()
-    cur.execute("DELETE FROM notes WHERE id = %s", (note_id,))
-    cur.close()
-    return "", 204
-
-if __name__ == "__main__":
-    app.run(debug=True)
-
-```
-
----
-
-# 4) Testando
-
-1. Rode o back e o front:
-
-```bash
-# com a venv-back ativa
-cd backend
-python app.py
-```
-
-```bash
-cd frontend
-npm run dev
-```
-
-2. Veja que os post-its iniciais aparecem.
-
+## O que mudou da Aula 3 para a Aula 4?
 
 Tente adicionar e deletar um post-it pela interface web e veja que ele aparece no banco de dados (pgAdmin).
 
-# 5) Entendendo o que fizemos no `app.py`
-
-
-## O que mudou do `app.py` da Aula 3 para a Aula 4?
-
 Na Aula 3, nosso back-end usava apenas uma **lista em memória (`notes`)** para armazenar os post-its.
-Agora, na Aula 4, fizemos a **migração para o PostgreSQL** usando a biblioteca **psycopg2**.
-
-As principais mudanças foram:
-
----
-
-### 🔹 1. Importamos o psycopg2
-
-```python
-import psycopg2
-```
-
-* Antes não havia conexão com banco.
-* Agora usamos o **psycopg2** para abrir uma conexão real com o PostgreSQL.
-
----
-
-### 🔹 2. Criamos a conexão com o banco
-
-```python
-conn = psycopg2.connect(
-    dbname="trilha_db",
-    user="postgres",
-    password="admin",
-    host="localhost",
-    port="5432"
-)
-conn.autocommit = True
-```
-
-* Antes: os dados ficavam apenas na lista Python `notes`.
-* Agora: conectamos no banco `getit` e usamos **autocommit** para gravar alterações direto no banco.
-
----
-
-### 🔹 3. Alteramos a rota inicial
-
-```python
-return "<h2>API Get-it rodando com PostgreSQL!</h2>"
-```
-
-* Só mudamos a mensagem para indicar que agora estamos rodando com **PostgreSQL**.
-
----
-
-### 🔹 4. Rota `/api/notes` — de lista Python para tabela do banco
-
-Antes (Aula 3):
-
-```python
-notes: list[dict] = []
-
-if request.method == "POST":
-    note = {
-        "id": len(notes) + 1,
-        "title": data.get("title", "").strip(),
-        "content": data.get("content", "").strip(),
-    }
-    notes.append(note)
-    return jsonify(note), 201
-```
-
-Agora (Aula 4):
-
-```python
-if request.method == "POST":
-    cur.execute(
-        "INSERT INTO notes (title, content, tag) VALUES (%s, %s, %s) RETURNING id, title, content, tag",
-        (data.get("title", "").strip(), data.get("content", "").strip(), data.get("tag", "").strip())
-    )
-    new_note = cur.fetchone()
-    return jsonify({"id": new_note[0], "title": new_note[1], "content": new_note[2], "tag": new_note[3]}), 201
-```
-
-* **Antes:** cada post-it era adicionado numa lista local (`notes`).
-* **Agora:** o post-it é salvo na tabela `notes` no PostgreSQL.
-* **SELECT no GET:** em vez de devolver a lista Python, buscamos os dados do banco (`SELECT id, title, content, tag FROM notes`).
-
----
-
-### 🔹 5. Rota DELETE
-
-Antes (Aula 3):
-
-```python
-notes = [n for n in notes if n["id"] != note_id]
-```
-
-Agora (Aula 4):
-
-```python
-cur.execute("DELETE FROM notes WHERE id = %s", (note_id,))
-```
-
-* **Antes:** apagávamos apenas da lista em memória.
-* **Agora:** deletamos diretamente do banco PostgreSQL.
+Agora, na Aula 4, fizemos a **migração para o PostgreSQL** usando **SQLAlchemy**.
 
 
 ---
 
-# 6) Implementando o Editar (Update)
+# 5) Vamos criar agora a funcionalidade de Edição
 
-## Back-end (Flask)
-
-No `app.py`, adicione (logo depois das outras rotas):
-
-```python
-# Buscar uma nota específica
-@app.route("/api/notes/<int:note_id>", methods=["GET"])
-def get_note(note_id):
-    cur = conn.cursor()
-    cur.execute(
-        "SELECT id, title, content, tag FROM notes WHERE id = %s",
-        (note_id,)
-    )
-    note = cur.fetchone()
-    cur.close()
-    if note:
-        return jsonify({"id": note[0], "title": note[1], "content": note[2], "tag": note[3]})
-    return jsonify({"error": "Note not found"}), 404
-```
-
-E também o `PUT` para editar:
-
-```python
-@app.route("/api/notes/<int:note_id>", methods=["PUT"])
-def update_note(note_id):
-    data = request.get_json(force=True)
-    cur = conn.cursor()
-    cur.execute(
-        "UPDATE notes SET title=%s, content=%s, tag=%s WHERE id=%s RETURNING id, title, content, tag",
-        (data.get("title", "").strip(), data.get("content", "").strip(), data.get("tag", "").strip(), note_id)
-    )
-    updated = cur.fetchone()
-    cur.close()
-    if updated:
-        return jsonify({"id": updated[0], "title": updated[1], "content": updated[2], "tag": updated[3]})
-    return jsonify({"error": "Note not found"}), 404
-```
-
----
-
-## Front-end — Página de edição
+## Página de edição
 
 Crie **`src/pages/EditNote.jsx`**:
 
@@ -461,14 +537,11 @@ export const router = createBrowserRouter([
 No **`Home.jsx`**, dentro do `map`, adicione o botão de edição junto da lixeira:
 
 ```jsx
-<div className="botoes">
   <a href={`/edit/${note.id}`} className="edit">✏️</a>
-  <a href="#" className="lixeira" onClick={(e) => { e.preventDefault(); handleDelete(note.id); }}>🗑️</a>
-</div>
 ```
 
 ---
-Agora cada post-it terá **botão de editar** e **botão de deletar**.
+Agora cada post-it terá **botão de editar** e **botão de deletar**. Teste para ver se deu certo.
 
 O nosso fluxo ficou assim:
 
@@ -477,19 +550,20 @@ O nosso fluxo ficou assim:
 * `PUT /api/notes/<id>` → edita uma nota.
 * O front consome diretamente o endpoint correto sem baixar dados desnecessários.
 
-# 8) Correção de notas 
+---
+
+# 6) Correção de notas 
 
 Por enquanto, ao tentar criar ou editar uma nota, não há validação se o título ou conteúdo estão vazios.
 Até colocamos no SQL que esses campos são `NOT NULL`, mas se tentarmos enviar uma nota sem conteúdo ou título, ela vai ser adicionada normalmente pois fica como string vazia `""` o que é diferente de `NULL`.
 
-## Editando o `app.py`:
+## Editando o `routes.py`:
 
-Adicione este campo logo depois de `data = request.get_json(force=True)` e antes de `cur.execute(...)` no `GET\POST` e `PUT`:
+Adicione este campo em duas funções logo depois de `data = request.get_json()` no `/api/notes POST` e `/api/notes/<int:id> PUT`:
 
 ```python
 if not data.get("title", "").strip() or not data.get("content", "").strip():
-            cur.close()
-            return jsonify({"error": "Título e conteúdo são obrigatórios"}), 400
+        return jsonify({"error": "Título e conteúdo são obrigatórios"}), 400
 ```
 
 ## Atualizando o front `Home.jsx`:
@@ -524,13 +598,13 @@ if not data.get("title", "").strip() or not data.get("content", "").strip():
 
 ## Atualizando o `EditNote.jsx`:
 
-Mesma coisa que fizemos em `Home.jsx`, na função `handleUpdate`:
+Mesma coisa que fizemos em `Home.jsx`, mas na função `handleUpdate`:
 
 ```jsx
 function handleUpdate(e) {
   e.preventDefault();
 
-  // 🔎 Validação no front: impedir edição vazia
+  // Validação no front: impedir edição vazia
   if (!title.trim() || !content.trim()) {
     alert("Título e conteúdo são obrigatórios!");
     return;
@@ -554,19 +628,14 @@ function handleUpdate(e) {
 
 ```
 
----
+# 7) Validação
 
-Boa! 🚀 Se vamos aproveitar a **Aula 4** para já implementar as **tags**, conseguimos fechar esse ciclo:
-
-* **Salvar tags** junto com as notas.
-* **Listar todas as tags existentes**.
-* **Permitir clicar em uma tag e ver só as notas daquela tag**.
-
-Vou montar o conteúdo em **Markdown** já no estilo das outras aulas.
+Já implementamos no back e no front a checagem para evitar notas sem título ou conteúdo. Confira se ao tentar criar ou editar uma nota vazia, aparece o alerta.
 
 ---
 
-# 9) Trabalhando com Tags
+
+# 8) Trabalhando com Tags
 
 Até agora, nossas notas já tinham um campo `tag`, mas ele ainda não estava sendo usado de forma completa.
 Agora vamos implementar mas sem CSS:
@@ -578,51 +647,40 @@ Agora vamos implementar mas sem CSS:
 
 ---
 
-## 1. Back-end (Flask)
+## 5.1 Back-end (Flask)
 
 ### a) Listar todas as tags
 
-No `app.py`, adicione:
+No `routes.py`, adicione:
 
 ```python
 # Listar todas as tags únicas
-@app.route("/api/tags", methods=["GET"])
+@main.route("/api/tags", methods=["GET"])
 def list_tags():
-    cur = conn.cursor()
-    cur.execute("SELECT DISTINCT tag FROM notes WHERE tag IS NOT NULL AND tag <> '' ORDER BY tag")
-    tags = [row[0] for row in cur.fetchall()]
-    cur.close()
-    return jsonify(tags)
+    tags = db.session.query(Note.tag).distinct().filter(Note.tag != "").all()
+    return jsonify([t[0] for t in tags])
 ```
-
-
 
 ---
 
 ### b) Listar notas de uma tag específica
 
-Ainda no `app.py`, adicione:
+Ainda no `routes.py`, adicione:
 
 ```python
 # Listar todas as notas de uma tag específica
-@app.route("/api/tags/<tag_name>", methods=["GET"])
+@main.route("/api/tags/<tag_name>", methods=["GET"])
 def notes_by_tag(tag_name):
-    cur = conn.cursor()
-    cur.execute(
-        "SELECT id, title, content, tag FROM notes WHERE tag = %s ORDER BY id",
-        (tag_name,)
-    )
-    notes = cur.fetchall()
-    cur.close()
+    notes = Note.query.filter_by(tag=tag_name).all()
     return jsonify([
-        {"id": n[0], "title": n[1], "content": n[2], "tag": n[3]}
+        {"id": n.id, "title": n.title, "content": n.content, "tag": n.tag}
         for n in notes
     ])
 ```
 
 ---
 
-## 2. Front-end — Página de Tags
+## 5.2 Front-end — Página de Tags
 
 Crie **`src/pages/Tags.jsx`**:
 
@@ -656,7 +714,7 @@ export default function Tags() {
 
 ---
 
-## 3. Front-end — Página de Notas por Tag
+## 5.3 Front-end — Página de Notas por Tag
 
 Crie **`src/pages/NotesByTag.jsx`**:
 
@@ -699,7 +757,7 @@ export default function NotesByTag() {
 
 ---
 
-## 4. Ajustando rotas
+## 5.4 Ajustando rotas
 
 No **`routes.jsx`**, adicione as duas páginas novas:
 
@@ -723,7 +781,7 @@ export const router = createBrowserRouter([
 
 ---
 
-## 5. Linkando tags nas notas
+## 5.5 Linkando tags nas notas
 
 No **`Home.jsx`**, ajuste a parte que renderiza a tag para ficar clicável:
 
@@ -735,26 +793,23 @@ No **`Home.jsx`**, ajuste a parte que renderiza a tag para ficar clicável:
 
 ---
 
-## 6. Resultado:
+## 5.6 Resultado:
 
 1. Criar notas com tags.
 2. Ir para `/tags` → lista de todas as tags únicas.
 3. Clicar em uma tag → `/tags/:tag` → mostra só as notas daquela tag.
-4. Tags nas notas da Home também são links clicáveis.
-
 ---
 
-# 10) Conclusão
+# 9) Conclusão
 
-Agora temos o CRUD completo e adicionamos a funcionalidad de **tags** para organizar as notas.
+Agora temos:
 
-Até aqui, já implementamos:
+* Back-end organizado com **Flask + SQLAlchemy + Migrations**;
+* Modelo `Note` que representa a tabela `notes`;
+* CRUD completo (Create, Read, Update, Delete);
+* **Validação** para evitar notas vazias;
+* **Tags** para organizar e filtrar notas.
 
-* **Create** → Criar notas
-* **Read** → Listar notas (todas ou por tag)
-* **Update** → Editar notas
-* **Delete** → Apagar notas
-* **Tags** → Organizar e filtrar notas
 
 
 
