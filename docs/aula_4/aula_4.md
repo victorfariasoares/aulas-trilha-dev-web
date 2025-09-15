@@ -150,9 +150,9 @@ CORS(app, origins=["http://localhost:5173"])
 
 # Conexão com o banco (ajuste usuário/senha conforme sua instalação)
 conn = psycopg2.connect(
-    dbname="getit",
+    dbname="trilha_db",
     user="postgres",
-    password="sua_senha_aqui",
+    password="admin",
     host="localhost",
     port="5432"
 )
