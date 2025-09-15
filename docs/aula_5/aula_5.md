@@ -247,7 +247,61 @@ Depois faça commit e push → o Render vai redeployar sozinho.
 
 
 
-# 3) Conclusão
+# 3). Corrigindo erro 404 nas rotas do Vercel
+
+Se você tentar acessar alguma tag, editar um post-it ou acessar diretamente uma rota do seu site no Vercel (por exemplo `/edit/8` ou `/tags/trabalho`), pode aparecer o erro:
+
+```
+404: NOT_FOUND
+```
+
+Isso acontece porque o **Vercel tenta procurar um arquivo físico naquela rota** (ex.: `tags/trabalho/index.html`), mas como estamos usando **React Router** (Single Page Application), todas as rotas precisam ser redirecionadas para o `index.html`.
+
+### Como resolver
+
+Precisamos criar um arquivo de configuração chamado **`vercel.json`** dentro da pasta `frontend/`:
+
+```
+trilha-dev-web/
+├─ backend/     # Flask (Render)
+├─ frontend/    # React (Vercel)
+│   ├─ src/
+│   ├─ package.json
+│   ├─ index.html
+│   └─ vercel.json   ✅ aqui!
+```
+
+Conteúdo do arquivo `frontend/vercel.json`:
+
+```json
+{
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/" }
+  ]
+}
+```
+
+Esse arquivo diz ao Vercel:
+
+> “Independente da rota acessada, sempre entregue o `index.html`. O React Router cuida de mostrar a página correta.”
+
+### Passos finais
+
+1. Crie o arquivo `vercel.json` na pasta `frontend/`.
+2. Faça commit e push para o GitHub:
+
+   ```bash
+   git add frontend/vercel.json
+   git commit -m "fix: SPA routes config for Vercel"
+   git push origin main
+   ```
+3. O Vercel fará um novo deploy automaticamente.
+4. Agora, rotas como `/edit/8` ou `/tags/trabalho` vão funcionar normalmente sem dar 404.
+
+---
+
+
+# 4) Conclusão
 
 Parabéns!
 Agora vocês têm um projeto **full-stack completo**:
