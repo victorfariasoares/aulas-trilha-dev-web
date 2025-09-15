@@ -2,18 +2,26 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
          <loc>https://SEU-USUARIO.github.io/AULAS_TRILHA_DEV_WEB/</loc>
-         <lastmod>2025-09-09</lastmod>
+         <lastmod>2025-09-15</lastmod>
     </url>
     <url>
          <loc>https://SEU-USUARIO.github.io/AULAS_TRILHA_DEV_WEB/aula_1/aula_1/</loc>
-         <lastmod>2025-09-09</lastmod>
+         <lastmod>2025-09-15</lastmod>
     </url>
     <url>
          <loc>https://SEU-USUARIO.github.io/AULAS_TRILHA_DEV_WEB/aula_2/aula_2/</loc>
-         <lastmod>2025-09-09</lastmod>
+         <lastmod>2025-09-15</lastmod>
     </url>
     <url>
          <loc>https://SEU-USUARIO.github.io/AULAS_TRILHA_DEV_WEB/aula_3/aula_3/</loc>
-         <lastmod>2025-09-09</lastmod>
+         <lastmod>2025-09-15</lastmod>
+    </url>
+    <url>
+         <loc>https://SEU-USUARIO.github.io/AULAS_TRILHA_DEV_WEB/aula_4/aula_4/</loc>
+         <lastmod>2025-09-15</lastmod>
+    </url>
+    <url>
+         <loc>https://SEU-USUARIO.github.io/AULAS_TRILHA_DEV_WEB/comandos_sql/comandos/</loc>
+         <lastmod>2025-09-15</lastmod>
     </url>
 </urlset>
