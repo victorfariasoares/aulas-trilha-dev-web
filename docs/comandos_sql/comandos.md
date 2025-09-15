@@ -33,6 +33,8 @@ CREATE TABLE notes (
 );
 ```
 
+Você pode verificar todos os tipos de dados [aqui](https://www.postgresql.org/docs/current/datatype.html) ou [W3 Schools](https://www.w3schools.com/sql/sql_datatypes.asp).
+
 ### Apagar tabela
 
 ```sql
